@@ -94,3 +94,34 @@ func SearchLatestVersion(name string) (meta Metadata, e error) {
 		meta = sr.Hits.Hits[0].Source
 	}
 }
+
+func AddVersion(name, hash string, size int64) error {
+	version, err := SearchLatestVersion(name)
+	if err != nil {
+		return err
+	}
+
+	return PutMetadata(name, version.Version+1, size, hash)
+}
+
+func SearchAllVersions(name string, from, size int) ([]Metadata, error) {
+	url := fmt.Sprintf("http://%s/metadata/_search?sort=name,version&from=%d&size=%d", os.Getenv("ES_SERVER"), from, size)
+	if name != "" {
+		url += "&q=name:" + name
+	}
+
+	r, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+
+	metas := make([]Metadata, 0)
+	result, _ := ioutil.ReadAll(r.Body)
+	var sr searchResult
+	json.Unmarshal(result, &sr)
+	for i := range sr.Hits.Hits {
+		metas = append(metas, sr.Hits.Hits[i].Source)
+	}
+
+	return metas, nil
+}
